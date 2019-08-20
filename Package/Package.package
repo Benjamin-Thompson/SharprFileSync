@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" dslVersion="1.0.0.0" Id="2ee60590-0c9b-4c64-853a-d1e39c919018" solutionId="2ee60590-0c9b-4c64-853a-d1e39c919018" resetWebServer="false" sharePointProductVersion="16.0" name="SharprFileSync" xmlns="http://schemas.microsoft.com/VisualStudio/2008/SharePointTools/PackageModel">
+  <features>
+    <featureReference itemId="2a06f494-689c-4dee-99f5-568b35f4048b" />
+  </features>
+</package>
