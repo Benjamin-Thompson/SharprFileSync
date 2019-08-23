@@ -101,6 +101,16 @@ namespace SharprFileSync.DocumentHandler
 
             SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, settings.FileMetadata);
 
+            if (settings.InitialExportDate == null)
+            {
+                try
+                {
+                    sss.InitialListLoad(properties.Web);
+                    WriteSharprSettingValue(properties, "Sharpr Service Init Date", DateTime.UtcNow.ToShortDateString());
+                }
+                catch { }              
+            }
+
             SPFile sFile = properties.ListItem.File;
 
             string contentType = MimeMapping.GetMimeMapping(sFile.Name);
@@ -124,6 +134,24 @@ namespace SharprFileSync.DocumentHandler
             sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);
         }
 
+        private static void WriteSharprSettingValue(SPItemEventProperties properties, string title, string value)
+        {
+            //by convention, we're going to assume settings are stored in a list within the same site called "Sharpr Settings"
+            using (SPWeb web = properties.Site.OpenWeb())
+            {
+                SPList list = web.Lists["Sharpr Settings"];
+                string[] fields = { "Title", "Value" };
+
+                foreach (SPListItem li in list.GetItems(fields))
+                {
+                    if (((string)li["Title"]) == title)
+                    {
+                        li["Value"] = value;
+                        li.Update();
+                    }
+                }
+            }
+        }
 
         private static SharprSettings GetSharprSettingValues(SPItemEventProperties properties)
         {

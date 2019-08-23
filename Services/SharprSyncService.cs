@@ -93,7 +93,7 @@ namespace SharprFileSync.Services
 
                 string fResult = UploadFileToSharpr(uniqueId, fileName, contentType, mStream, metadata);
 
-                if (fResult == "200") successFileCount++;
+                if (fResult == "Created") successFileCount++;
                 else failedFileCount++;
                 totalFilecount++;
             }
