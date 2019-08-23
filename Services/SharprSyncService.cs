@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.SharePoint;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,26 +7,31 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace SharprFileSync.Services
 {
     public class SharprSyncService
     {
         private static CredentialCache _credentialCache;
-        private static string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
-        private static string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
-        private static string _sharprURL = "https://sharprua.com/api/";
+        private  string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
+        private  string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
+        private  string _sharprURL = "https://sharprua.com/api/";
+        private string _localDocumentList = "Documents";
+        private List<SharprFileMetadata> _metadata = new List<SharprFileMetadata>();
 
         public SharprSyncService()
         {
 
         }
 
-        public SharprSyncService (string url, string user, string pass)
+        public SharprSyncService (string url, string user, string pass, string documentList, List<SharprFileMetadata> metadata)
         {
             _sharprURL = url;
             _sharprPass = pass;
             _sharprUser = user;
+            _localDocumentList = documentList;
+            _metadata = metadata;
         }
 
      
@@ -47,12 +53,56 @@ namespace SharprFileSync.Services
         }
 
 
-        public void InitialListLoad(string listGUID)
+        public void InitialListLoad(SPWeb web)
         {
+
+            int successFileCount = 0;
+            int failedFileCount = 0;
+            int totalFilecount = 0;
+
+            SPList list = web.Lists[_localDocumentList];
+
+            List<string> fields = new List<string>();
+            foreach(SharprFileMetadata m in _metadata)
+            {
+                if (!fields.Contains(m.SharePointPropertyName)) fields.Add(m.SharePointPropertyName);
+            }
+
+            foreach (SPListItem li in list.GetItems(fields.ToArray()))
+            {
+                string uniqueId = "";
+                string fileName = "";
+                string contentType = "";               
+                List<SharprFileMetadata> metadata = new List<SharprFileMetadata>();
+
+
+                uniqueId = li.UniqueId.ToString();
+                fileName = li.File.Name;
+                contentType = MimeMapping.GetMimeMapping(fileName);
+
+                byte[] fileContents = li.File.OpenBinary();
+                MemoryStream mStream = new MemoryStream();
+                mStream.Write(fileContents, 0, fileContents.Length);
+
+                metadata.AddRange(_metadata);
+                foreach(SharprFileMetadata m in metadata)
+                {
+                    try { m.PropertyValue = ((string)li[m.SharePointPropertyName]); }
+                    catch { }
+                }
+
+                string fResult = UploadFileToSharpr(uniqueId, fileName, contentType, mStream, metadata);
+
+                if (fResult == "200") successFileCount++;
+                else failedFileCount++;
+                totalFilecount++;
+            }
+
+      
 
         }
 
-        public  string UploadFileToSharpr(string fileGUID, string fileName, string classification, string[] tags, string contentType, MemoryStream fileContents)
+        public  string UploadFileToSharpr(string fileGUID, string fileName, string contentType, MemoryStream fileContents, List<SharprFileMetadata> metadata)
         {
             string result = "PENDING";
             HttpClient client = CreateSharprRequest();
@@ -66,18 +116,13 @@ namespace SharprFileSync.Services
                 sb.Append("\"filename\":\"" + fileName + "\",");
                 sb.Append("\"data\":\"data:" + contentType + ";base64, " + fileDataString + "\",");
                 sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\",");
-                //sb.Append("\"category\":\"" + fileGUID + "\",");
-                sb.Append("\"classification\":\"" + classification + "\"");
-                if (tags != null)
+
+                foreach(SharprFileMetadata m in metadata)
                 {
-                    sb.Append(", \"tags\":{");
-                    foreach (string t in tags)
-                    {
-                        sb.Append("\"" + t + "\",");
-                    }
-                    sb.Remove(sb.Length - 1, 1); //remove the trailing ","
-                    sb.Append("}");
+                    sb.Append("\"" + m.SharprPropertyName + "\":\"" + m.PropertyValue + "\",");
                 }
+
+                sb.Remove(sb.Length - 1, 1); //trim off the last ','
 
                 sb.Append("}");
 

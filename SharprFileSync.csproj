@@ -15,6 +15,7 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <MinimumOfficeToolsVersion>14.0</MinimumOfficeToolsVersion>
     <SandboxedSolution>False</SandboxedSolution>
+    <AssemblyDeploymentTarget>GlobalAssemblyCache</AssemblyDeploymentTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -42,6 +43,7 @@
     <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
@@ -60,6 +62,8 @@
     <Compile Include="DocumentHandler\DocumentHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\Logger.cs" />
+    <Compile Include="Services\SharprExportResults.cs" />
+    <Compile Include="Services\SharprMetadata.cs" />
     <Compile Include="Services\SharprSettings.cs" />
     <Compile Include="Services\SharprSyncService.cs" />
   </ItemGroup>
@@ -71,6 +75,7 @@
       <FeatureId>{2a06f494-689c-4dee-99f5-568b35f4048b}</FeatureId>
     </None>
     <None Include="key.snk" />
+    <None Include="packages.config" />
     <None Include="Package\Package.package">
       <PackageId>{2ee60590-0c9b-4c64-853a-d1e39c919018}</PackageId>
     </None>

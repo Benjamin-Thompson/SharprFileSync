@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Security.Permissions;
@@ -6,6 +7,7 @@ using System.Web;
 using Microsoft.SharePoint;
 using Microsoft.SharePoint.Utilities;
 using Microsoft.SharePoint.Workflow;
+using Newtonsoft.Json;
 using SharprFileSync.Services;
 
 namespace SharprFileSync.DocumentHandler
@@ -24,7 +26,7 @@ namespace SharprFileSync.DocumentHandler
             
             try
             {
-                SendFile(properties);
+                if (properties.ListItem.Level == SPFileLevel.Published) SendFile(properties);
 
                 Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Completed.");
             }
@@ -48,7 +50,7 @@ namespace SharprFileSync.DocumentHandler
 
             try
             {
-                SendFile(properties);
+                if (properties.ListItem.Level == SPFileLevel.Published) SendFile(properties);
 
                 Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Completed.");
             }
@@ -70,16 +72,16 @@ namespace SharprFileSync.DocumentHandler
             Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Started.");
             try
             {
-                //get settings from the appropriate list
-                SharprSettings settings = GetSharprSettingValues(properties);
+                    //get settings from the appropriate list
+                    SharprSettings settings = GetSharprSettingValues(properties);
 
-                SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass);
+                    SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, new List<SharprFileMetadata>());
 
-                SPFile sFile = properties.ListItem.File;
+                    SPFile sFile = properties.ListItem.File;
 
-                sss.RemoveFileFromSharpr(sFile.UniqueId.ToString());
+                    sss.RemoveFileFromSharpr(sFile.UniqueId.ToString());
 
-                Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Completed.");
+                    Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Completed.");
             }
             catch (Exception ex)
             {
@@ -97,7 +99,7 @@ namespace SharprFileSync.DocumentHandler
             //get settings from the appropriate list
             SharprSettings settings = GetSharprSettingValues(properties);
 
-            SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass);
+            SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, settings.FileMetadata);
 
             SPFile sFile = properties.ListItem.File;
 
@@ -107,18 +109,19 @@ namespace SharprFileSync.DocumentHandler
             MemoryStream mStream = new MemoryStream();
             mStream.Write(fileContents, 0, fileContents.Length);
 
-            string[] tags = null;
-            var pTags = sFile.GetProperty("tags");
-            if (pTags != null)
+            List<SharprFileMetadata> metadata = new List<SharprFileMetadata>();
+            metadata.AddRange(settings.FileMetadata);
+            foreach(SharprFileMetadata m in metadata)
             {
-                //split comma delimited tags into an array of strings
-                tags = ((string)pTags).Split(',');
+                try { m.PropertyValue = ((string)sFile.Item[m.SharePointPropertyName]); } 
+                catch(Exception ex)
+                {
+                    //do nothing
+                }
             }
 
-            string classification = "test"; //for now
-
             //now that we have the contents, upload to Sharpr
-            sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, classification, tags, contentType, mStream);
+            sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);
         }
 
 
@@ -138,7 +141,13 @@ namespace SharprFileSync.DocumentHandler
                     if (((string)li["Title"]) == "Sharpr Service URL") result.SharprURL = (string)li["Value"];
                     else if (((string)li["Title"]) == "Sharpr Service User") result.SharprUser = (string)li["Value"];
                     else if (((string)li["Title"]) == "Sharpr Service Password") result.SharprPass = (string)li["Value"];
-                    else if (((string)li["Title"]) == "Local Document List") result.LocalDocumentListName = (string)li["Value"];
+                    else if (((string)li["Title"]) == "Local Document List") result.DocumentListName = (string)li["Value"];
+                    else if (((string)li["Title"]) == "Sharpr File Metadata")
+                    {
+                        result.FileMetadata = new List<SharprFileMetadata>();
+                        string stringMetadata = (string)li["Value"];
+                        result.FileMetadata = JsonConvert.DeserializeObject<List<SharprFileMetadata>>(stringMetadata);
+                    }
                     else if (((string)li["Title"]) == "Sharpr Service Init Date")
                     {
                         string tmpDate = (string)li["Value"];

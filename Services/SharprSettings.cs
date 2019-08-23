@@ -11,7 +11,8 @@ namespace SharprFileSync.Services
         public string SharprURL { get; set; }
         public string SharprUser { get; set; }
         public string SharprPass { get; set; }
-        public string LocalDocumentListName { get; set; }
+        public string DocumentListName { get; set; }
+        public List<SharprFileMetadata> FileMetadata { get; set; }
         public DateTime? InitialExportDate { get; set; }
         public bool NotSet { get; set; }
     }
