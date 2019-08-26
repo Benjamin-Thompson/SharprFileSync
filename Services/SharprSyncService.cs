@@ -53,12 +53,13 @@ namespace SharprFileSync.Services
         }
 
 
-        public void InitialListLoad(SPWeb web)
+        public SharprInitResults InitialListLoad(SPWeb web)
         {
+            SharprInitResults result = new SharprInitResults();
 
-            int successFileCount = 0;
-            int failedFileCount = 0;
-            int totalFilecount = 0;
+            result.UploadSuccessCount = 0;
+            result.UploadFailCount = 0;
+            result.TotalFileCount = 0;
 
             SPList list = web.Lists[_localDocumentList];
 
@@ -93,12 +94,12 @@ namespace SharprFileSync.Services
 
                 string fResult = UploadFileToSharpr(uniqueId, fileName, contentType, mStream, metadata);
 
-                if (fResult == "Created") successFileCount++;
-                else failedFileCount++;
-                totalFilecount++;
+                if (fResult == "Created") result.UploadSuccessCount++;
+                else result.UploadFailCount++;
+                result.TotalFileCount ++;
             }
 
-      
+            return result;
 
         }
 
@@ -110,6 +111,8 @@ namespace SharprFileSync.Services
             if (fileContents.CanRead && fileContents.Length > 0)
             {
                 string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
+                //in the event that the file data string contains the file type in it, strip that off (it messes up Sharpr)
+                if (fileDataString.StartsWith(contentType)) fileDataString = fileDataString.TrimStart(contentType.ToCharArray());
                 StringBuilder sb = new StringBuilder();
                 sb.Append("{");
                 sb.Append("\"ref\":\"" + fileGUID + "\",");

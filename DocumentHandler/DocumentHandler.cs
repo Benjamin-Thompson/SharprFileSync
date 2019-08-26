@@ -26,7 +26,8 @@ namespace SharprFileSync.DocumentHandler
             
             try
             {
-                if (properties.ListItem.Level == SPFileLevel.Published) SendFile(properties);
+                SharprSettings settings = GetSharprSettingValues(properties);
+                if (properties.ListItem.Level == SPFileLevel.Published) if (properties.List.Title == settings.DocumentListName) SendFile(properties);
 
                 Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Completed.");
             }
@@ -50,7 +51,8 @@ namespace SharprFileSync.DocumentHandler
 
             try
             {
-                if (properties.ListItem.Level == SPFileLevel.Published) SendFile(properties);
+                SharprSettings settings = GetSharprSettingValues(properties);
+                if (properties.ListItem.Level == SPFileLevel.Published) if (properties.List.Title == settings.DocumentListName) SendFile(properties);
 
                 Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Completed.");
             }
@@ -72,9 +74,11 @@ namespace SharprFileSync.DocumentHandler
             Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Started.");
             try
             {
-                    //get settings from the appropriate list
-                    SharprSettings settings = GetSharprSettingValues(properties);
 
+                //get settings from the appropriate list
+                SharprSettings settings = GetSharprSettingValues(properties);
+                if (properties.List.Title == settings.DocumentListName)
+                {
                     SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, new List<SharprFileMetadata>());
 
                     SPFile sFile = properties.ListItem.File;
@@ -82,6 +86,8 @@ namespace SharprFileSync.DocumentHandler
                     sss.RemoveFileFromSharpr(sFile.UniqueId.ToString());
 
                     Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Completed.");
+                }
+                    
             }
             catch (Exception ex)
             {
@@ -105,33 +111,36 @@ namespace SharprFileSync.DocumentHandler
             {
                 try
                 {
-                    sss.InitialListLoad(properties.Web);
+                    SharprInitResults result = sss.InitialListLoad(properties.Web);
                     WriteSharprSettingValue(properties, "Sharpr Service Init Date", DateTime.UtcNow.ToShortDateString());
+                    WriteSharprSettingValue(properties, "Sharpr Export Results", Newtonsoft.Json.JsonConvert.SerializeObject(result));
                 }
                 catch { }              
-            }
-
-            SPFile sFile = properties.ListItem.File;
-
-            string contentType = MimeMapping.GetMimeMapping(sFile.Name);
-
-            byte[] fileContents = sFile.OpenBinary();
-            MemoryStream mStream = new MemoryStream();
-            mStream.Write(fileContents, 0, fileContents.Length);
-
-            List<SharprFileMetadata> metadata = new List<SharprFileMetadata>();
-            metadata.AddRange(settings.FileMetadata);
-            foreach(SharprFileMetadata m in metadata)
+            } else
             {
-                try { m.PropertyValue = ((string)sFile.Item[m.SharePointPropertyName]); } 
-                catch(Exception ex)
-                {
-                    //do nothing
-                }
-            }
+                SPFile sFile = properties.ListItem.File;
 
-            //now that we have the contents, upload to Sharpr
-            sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);
+                string contentType = MimeMapping.GetMimeMapping(sFile.Name);
+
+                byte[] fileContents = sFile.OpenBinary();
+                MemoryStream mStream = new MemoryStream();
+                mStream.Write(fileContents, 0, fileContents.Length);
+
+                List<SharprFileMetadata> metadata = new List<SharprFileMetadata>();
+                metadata.AddRange(settings.FileMetadata);
+                foreach (SharprFileMetadata m in metadata)
+                {
+                    try { m.PropertyValue = ((string)sFile.Item[m.SharePointPropertyName]); }
+                    catch (Exception ex)
+                    {
+                        //do nothing
+                    }
+                }
+
+                //now that we have the contents, upload to Sharpr
+                sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);
+            }
+           
         }
 
         private static void WriteSharprSettingValue(SPItemEventProperties properties, string title, string value)
