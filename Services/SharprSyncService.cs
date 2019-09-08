@@ -113,23 +113,25 @@ namespace SharprFileSync.Services
                 string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
                 //in the event that the file data string contains the file type in it, strip that off (it messes up Sharpr)
                 if (fileDataString.StartsWith(contentType)) fileDataString = fileDataString.TrimStart(contentType.ToCharArray());
-                StringBuilder sb = new StringBuilder();
-                sb.Append("{");
-                sb.Append("\"ref\":\"" + fileGUID + "\",");
-                sb.Append("\"filename\":\"" + fileName + "\",");
-                sb.Append("\"data\":\"data:" + contentType + ";base64, " + fileDataString + "\",");
-                sb.Append("\"file_size\":\"" + fileDataString.Length.ToString() + "\",");
+                SharprAddUpdateRequest req = new SharprAddUpdateRequest();
+                req.refNumber = fileGUID;
+                req.filename = fileName;
+                req.data = "data:" + contentType + ";base64, " + fileDataString;
+                req.file_size = fileDataString.Length;
+                req.tags = new List<string>();
+
+                string stringJson = Newtonsoft.Json.JsonConvert.SerializeObject(req);
 
                 foreach(SharprFileMetadata m in metadata)
                 {
-                    sb.Append("\"" + m.SharprPropertyName + "\":\"" + m.PropertyValue + "\",");
+                    if (m.SharprPropertyName.ToLower() == "category") req.category = m.PropertyValue;
+                    else if (m.SharprPropertyName.ToLower() == "classification") req.classification = m.PropertyValue;
+                    else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(m.PropertyValue);
                 }
 
-                sb.Remove(sb.Length - 1, 1); //trim off the last ','
+                stringJson = stringJson.Replace("refNumber", "ref");
 
-                sb.Append("}");
-
-                var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
+                var content = new StringContent(stringJson, Encoding.UTF8, "application/json");
 
                 var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
                 tResponse.Wait();
