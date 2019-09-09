@@ -66,39 +66,8 @@ namespace SharprFileSync.DocumentHandler
             }
         }
 
-        /// <summary>
-        /// An item was deleted.
-        /// </summary>
-        public override void ItemDeleted(SPItemEventProperties properties)
-        {
-            Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Started.");
-            try
-            {
 
-                //get settings from the appropriate list
-                SharprSettings settings = GetSharprSettingValues(properties);
-                if (properties.List.Title == settings.DocumentListName)
-                {
-                    SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, new List<SharprFileMetadata>());
 
-                    SPFile sFile = properties.ListItem.File;
-
-                    sss.RemoveFileFromSharpr(sFile.UniqueId.ToString());
-
-                    Logger.WriteLog(Logger.Category.Information, "ItemDeleted", "Completed.");
-                }
-                    
-            }
-            catch (Exception ex)
-            {
-                Logger.WriteLog(Logger.Category.Unexpected, "ItemDeleted", ex.Message + Environment.NewLine + ex.StackTrace);
-            }
-            finally
-            {
-                base.ItemDeleted(properties);
-            }
-            
-        }
 
         private static void SendFile(SPItemEventProperties properties)
         {
@@ -198,6 +167,40 @@ namespace SharprFileSync.DocumentHandler
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// An item is being deleted
+        /// </summary>
+        public override void ItemDeleting(SPItemEventProperties properties)
+        {
+            Logger.WriteLog(Logger.Category.Information, "ItemDeleting", "Started.");
+            try
+            {
+
+                //get settings from the appropriate list
+                SharprSettings settings = GetSharprSettingValues(properties);
+                if (properties.List.Title == settings.DocumentListName)
+                {
+                    SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, new List<SharprFileMetadata>());
+
+                    SPFile sFile = properties.ListItem.File;
+
+                    sss.RemoveFileFromSharpr(sFile.UniqueId.ToString());
+
+                    Logger.WriteLog(Logger.Category.Information, "ItemDeleting", "Completed.");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Logger.WriteLog(Logger.Category.Unexpected, "ItemDeleting", ex.Message + Environment.NewLine + ex.StackTrace);
+            }
+            finally
+            {
+                base.ItemDeleting(properties);
+            }
+            
         }
     }
 }

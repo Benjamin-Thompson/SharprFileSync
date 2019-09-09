@@ -15,14 +15,14 @@
         <Class>SharprFileSync.DocumentHandler.DocumentHandler</Class>
         <SequenceNumber>10000</SequenceNumber>
       </Receiver>
-      <Receiver>
-        <Name>DocumentHandlerItemDeleted</Name>
-        <Type>ItemDeleted</Type>
-        <Assembly>$SharePoint.Project.AssemblyFullName$</Assembly>
-        <Class>SharprFileSync.DocumentHandler.DocumentHandler</Class>
-        <SequenceNumber>10000</SequenceNumber>
-      </Receiver>
-  </Receivers>
+  <Receiver>
+<Name>DocumentHandlerItemDeleting</Name>
+<Type>ItemDeleting</Type>
+<Assembly>$SharePoint.Project.AssemblyFullName$</Assembly>
+<Class>SharprFileSync.DocumentHandler.DocumentHandler</Class>
+<SequenceNumber>10000</SequenceNumber>
+</Receiver>
+</Receivers>
 
   
 </Elements>
