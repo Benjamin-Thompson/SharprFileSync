@@ -206,8 +206,9 @@ namespace SharprFileSync.Services
                 sb.Append("}");
 
                 var content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json");
-
-                var tResponse = client.DeleteAsync(_sharprURL + "v2/files/sync/" + fileGUID);
+                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, _sharprURL + "v2/files/sync/");
+                request.Content = content;
+                var tResponse = client.SendAsync(request);
                 tResponse.Wait();
 
                 var tRead = tResponse.Result.Content.ReadAsStringAsync();
