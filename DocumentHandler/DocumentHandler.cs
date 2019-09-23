@@ -17,6 +17,12 @@ namespace SharprFileSync.DocumentHandler
     /// </summary>
     public class DocumentHandler : SPItemEventReceiver
     {
+        private List<SharprTransferRecord> currentFileList;
+        public DocumentHandler()
+        {
+            currentFileList = new List<SharprTransferRecord>() ;
+        }
+
         /// <summary>
         /// An item was added.
         /// </summary>
@@ -26,9 +32,19 @@ namespace SharprFileSync.DocumentHandler
             
             try
             {
-                SharprSettings settings = GetSharprSettingValues(properties);
-                if (properties.ListItem.Level == SPFileLevel.Published) if (properties.List.Title == settings.DocumentListName) SendFile(properties);
+                if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
+                    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
+                {
+                    SharprSettings settings = GetSharprSettingValues(properties);
+                    if (properties.ListItem.Level == SPFileLevel.Published)
+                    {
+                        if (properties.List.Title == settings.DocumentListName)
+                        {
+                            SendFile(properties);
+                        }
+                    }
 
+                }
                 Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Completed.");
             }
             catch (Exception ex)
@@ -51,8 +67,19 @@ namespace SharprFileSync.DocumentHandler
 
             try
             {
-                SharprSettings settings = GetSharprSettingValues(properties);
-                if (properties.ListItem.Level == SPFileLevel.Published) if (properties.List.Title == settings.DocumentListName) SendFile(properties);
+                if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
+                    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
+                {
+                    SharprSettings settings = GetSharprSettingValues(properties);
+                    if (properties.ListItem.Level == SPFileLevel.Published)
+                    {
+                        if (properties.List.Title == settings.DocumentListName)
+                        {
+                            SendFile(properties);
+                        }
+                    }
+
+                }
 
                 Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Completed.");
             }
@@ -69,12 +96,13 @@ namespace SharprFileSync.DocumentHandler
 
 
 
-        private static void SendFile(SPItemEventProperties properties)
+        private void SendFile(SPItemEventProperties properties)
         {
             //get settings from the appropriate list
             SharprSettings settings = GetSharprSettingValues(properties);
 
-            SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, settings.FileMetadata);
+            SharprSyncService sss = SharprSyncService.Instance;
+            sss.InitSettings(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, settings.FileMetadata);
 
             if (settings.InitialExportDate == null)
             {
@@ -89,6 +117,8 @@ namespace SharprFileSync.DocumentHandler
             {
                 SPFile sFile = properties.ListItem.File;
 
+                //WriteSharprSettingValue(properties, "Currently Processing Files", settings.CurrentlyProcessingFile + "," + sFile.Name);
+                this.currentFileList.Add(new SharprTransferRecord { FileName = sFile.Name, TimeStamp = DateTime.UtcNow, Result = "Started" });
                 string contentType = MimeMapping.GetMimeMapping(sFile.Name);
 
                 byte[] fileContents = sFile.OpenBinary();
@@ -99,7 +129,7 @@ namespace SharprFileSync.DocumentHandler
                 metadata.AddRange(settings.FileMetadata);
                 foreach (SharprFileMetadata m in metadata)
                 {
-                    try { m.PropertyValue = ((string)sFile.Item[m.SharePointPropertyName]); }
+                    try { m.PropertyValue = ((string)sFile.Item[m.SharePointPropertyName].ToString()); }
                     catch (Exception ex)
                     {
                         //do nothing
@@ -107,7 +137,7 @@ namespace SharprFileSync.DocumentHandler
                 }
 
                 //now that we have the contents, upload to Sharpr
-                sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);
+                string result = sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);           
             }
            
         }
@@ -148,10 +178,12 @@ namespace SharprFileSync.DocumentHandler
                     else if (((string)li["Title"]) == "Sharpr Service User") result.SharprUser = (string)li["Value"];
                     else if (((string)li["Title"]) == "Sharpr Service Password") result.SharprPass = (string)li["Value"];
                     else if (((string)li["Title"]) == "Local Document List") result.DocumentListName = (string)li["Value"];
+                    //else if (((string)li["Title"]) == "Currently Processing Files") result.CurrentlyProcessingFile = (string)li["Value"];
                     else if (((string)li["Title"]) == "Sharpr File Metadata")
                     {
                         result.FileMetadata = new List<SharprFileMetadata>();
-                        string stringMetadata = (string)li["Value"];
+                        string stringMetadata = System.Web.HttpUtility.HtmlDecode((string)li["Value"]);
+                        stringMetadata = stringMetadata.TrimEnd("</div>".ToCharArray()).TrimStart(stringMetadata.Substring(0, stringMetadata.IndexOf('[')).ToCharArray());  //the <div></div> container is added if a multiline control is used. if that's the case, we need to strip that off. 
                         result.FileMetadata = JsonConvert.DeserializeObject<List<SharprFileMetadata>>(stringMetadata);
                     }
                     else if (((string)li["Title"]) == "Sharpr Service Init Date")
@@ -182,7 +214,8 @@ namespace SharprFileSync.DocumentHandler
                 SharprSettings settings = GetSharprSettingValues(properties);
                 if (properties.List.Title == settings.DocumentListName)
                 {
-                    SharprSyncService sss = new SharprSyncService(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, new List<SharprFileMetadata>());
+                    SharprSyncService sss = SharprSyncService.Instance;
+                    sss.InitSettings(settings.SharprURL, settings.SharprUser, settings.SharprPass, settings.DocumentListName, settings.FileMetadata);
 
                     SPFile sFile = properties.ListItem.File;
 

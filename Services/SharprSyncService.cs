@@ -6,32 +6,42 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
 namespace SharprFileSync.Services
 {
-    public class SharprSyncService
+    public sealed class SharprSyncService
     {
+        private static Lazy<SharprSyncService> instance = new Lazy<SharprSyncService>(() => new SharprSyncService());
+
         private static CredentialCache _credentialCache;
         private  string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
         private  string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
         private  string _sharprURL = "https://sharprua.com/api/";
         private string _localDocumentList = "Documents";
         private List<SharprFileMetadata> _metadata = new List<SharprFileMetadata>();
+        private List<SharprTransferRecord> currentFileList = new List<SharprTransferRecord>();
 
-        public SharprSyncService()
+        private SharprSyncService()
         {
-
+            currentFileList = new List<SharprTransferRecord>();
         }
 
-        public SharprSyncService (string url, string user, string pass, string documentList, List<SharprFileMetadata> metadata)
+        public static SharprSyncService Instance
+        {
+            get { return instance.Value; }
+        }
+
+        public void InitSettings (string url, string user, string pass, string documentList, List<SharprFileMetadata> metadata)
         {
             _sharprURL = url;
             _sharprPass = pass;
             _sharprUser = user;
             _localDocumentList = documentList;
             _metadata = metadata;
+
         }
 
      
@@ -106,52 +116,77 @@ namespace SharprFileSync.Services
         public  string UploadFileToSharpr(string fileGUID, string fileName, string contentType, MemoryStream fileContents, List<SharprFileMetadata> metadata)
         {
             string result = "PENDING";
-            HttpClient client = CreateSharprRequest();
+            if (this.currentFileList.Find(c => c.Guid == fileGUID) == null)
+            {               
+                HttpClient client = CreateSharprRequest();
 
-            if (fileContents.CanRead && fileContents.Length > 0)
-            {
-                string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
-                //in the event that the file data string contains the file type in it, strip that off (it messes up Sharpr)
-                if (fileDataString.StartsWith(contentType)) fileDataString = fileDataString.TrimStart(contentType.ToCharArray());
-                SharprAddUpdateRequest req = new SharprAddUpdateRequest();
-                req.refNumber = fileGUID;
-                req.filename = fileName;
-                req.data = "data:" + contentType + ";base64, " + fileDataString;
-                req.file_size = fileDataString.Length;
-                req.tags = new List<string>();
-
-                string stringJson = Newtonsoft.Json.JsonConvert.SerializeObject(req);
-
-                foreach(SharprFileMetadata m in metadata)
+                if (fileContents.CanRead && fileContents.Length > 0)
                 {
-                    if (m.SharprPropertyName.ToLower() == "category") req.category = m.PropertyValue;
-                    else if (m.SharprPropertyName.ToLower() == "classification") req.classification = m.PropertyValue;
-                    else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(m.PropertyValue);
+                    string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
+                    //in the event that the file data string contains the file type in it, strip that off (it messes up Sharpr)
+                    if (fileDataString.StartsWith(contentType)) fileDataString = fileDataString.TrimStart(contentType.ToCharArray()).TrimStart(' ');
+                    SharprAddUpdateRequest req = new SharprAddUpdateRequest();
+                    req.refNumber = fileGUID;
+                    req.filename = fileName;
+                    req.data = "data:" + contentType + ";base64, " + fileDataString;
+                    req.file_size = fileDataString.Length;
+                    req.tags = new List<string>();
+
+
+                    foreach (SharprFileMetadata m in metadata)
+                    {
+                        //sharepoint stores numeric values in the format "3;#3.00000000000000"; we need to test for this formatting, and if present, convert it to a plain number.
+                        string pValue = "";
+                        string testValue = TestValueForSharepointInt(m.PropertyValue);
+                        if (testValue != "") pValue = testValue;
+                        else pValue = m.PropertyValue;
+
+                        if (m.SharprPropertyName.ToLower() == "category") req.category = pValue;
+                        else if (m.SharprPropertyName.ToLower() == "classification_id") req.classification_id = pValue;
+                        else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(pValue);
+                    }
+
+
+                    string stringJson = Newtonsoft.Json.JsonConvert.SerializeObject(req);
+
+                    stringJson = stringJson.Replace("refNumber", "ref");
+
+                    var content = new StringContent(stringJson, Encoding.UTF8, "application/json");
+
+                    var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
+                    tResponse.Wait();
+
+                    var tRead = tResponse.Result.Content.ReadAsStringAsync();
+                    tRead.Wait();
+
+                    if (tRead.Result != null) result = tResponse.Result.StatusCode.ToString();
+                }
+                else
+                {
+                    result = "FILE-EMPTY";
                 }
 
-                stringJson = stringJson.Replace("refNumber", "ref");
+                client.Dispose();
 
-                var content = new StringContent(stringJson, Encoding.UTF8, "application/json");
-
-                var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
-                tResponse.Wait();
-
-                var tRead = tResponse.Result.Content.ReadAsStringAsync();
-                tRead.Wait();
-
-                if (tRead.Result != null) result = tResponse.Result.StatusCode.ToString();
+                this.currentFileList.Add(new SharprTransferRecord { Guid = fileGUID, FileName = fileName, TimeStamp = DateTime.UtcNow, Result = result });
             }
-            else
-            {
-                result = "FILE-EMPTY";
-            }
-
-            client.Dispose();
-
             return result;
         }
 
 
+        public string TestValueForSharepointInt(string value)
+        {
+            string result = "";
+
+            Regex r = new Regex(@"\d*;#\d*\.\d*");
+            if (r.Match(value).Success) // like "3;#3.00000000000000"
+            {
+                result = value.Substring(0, value.IndexOf(';'));
+            }
+
+
+            return result;
+        }
        public  string RemoveFileFromSharpr(string fileGUID)
         {
             string result = "PENDING";

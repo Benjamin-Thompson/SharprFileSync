@@ -13,6 +13,7 @@ namespace SharprFileSync.Services
         public string SharprPass { get; set; }
         public string DocumentListName { get; set; }
         public List<SharprFileMetadata> FileMetadata { get; set; }
+        //public string CurrentlyProcessingFile { get; set; }
         public DateTime? InitialExportDate { get; set; }
         public bool NotSet { get; set; }
     }

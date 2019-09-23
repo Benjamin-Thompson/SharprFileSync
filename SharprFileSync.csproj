@@ -68,6 +68,7 @@
     <Compile Include="Services\SharprMetadata.cs" />
     <Compile Include="Services\SharprSettings.cs" />
     <Compile Include="Services\SharprSyncService.cs" />
+    <Compile Include="Services\TransferRecord.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="DocumentHandler\SharePointProjectItem.spdata">
