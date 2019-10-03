@@ -142,7 +142,7 @@ namespace SharprFileSync.Services
                         else pValue = m.PropertyValue;
 
                         if (m.SharprPropertyName.ToLower() == "category") req.category = pValue;
-                        else if (m.SharprPropertyName.ToLower() == "classification_id") req.classification_id = pValue;
+                        else if (m.SharprPropertyName.ToLower() == "classification") req.classification = pValue;
                         else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(pValue);
                     }
 
