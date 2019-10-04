@@ -137,7 +137,8 @@ namespace SharprFileSync.Services
                     {
                         //sharepoint stores numeric values in the format "3;#3.00000000000000"; we need to test for this formatting, and if present, convert it to a plain number.
                         string pValue = "";
-                        string testValue = TestValueForSharepointInt(m.PropertyValue);
+                        //string testValue = TestValueForSharepointInt(m.PropertyValue);
+                        string testValue = GetLinkedItemValue(m.PropertyValue);
                         if (testValue != "") pValue = testValue;
                         else pValue = m.PropertyValue;
 
@@ -184,6 +185,22 @@ namespace SharprFileSync.Services
                 result = value.Substring(0, value.IndexOf(';'));
             }
 
+
+            return result;
+        }
+
+        public string GetLinkedItemValue(string value)
+        {
+            string result = "";
+            //sharepoint linked items return their values in the format ListItemID;#ListItemValue
+            //we just need the last part.
+            try {
+                result = value.Substring(value.IndexOf(";#")).Replace(";#", "");
+            } catch
+            {
+                result = "";
+            }
+            
 
             return result;
         }
