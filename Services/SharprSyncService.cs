@@ -17,9 +17,6 @@ namespace SharprFileSync.Services
         private static Lazy<SharprSyncService> instance = new Lazy<SharprSyncService>(() => new SharprSyncService());
 
         private static CredentialCache _credentialCache;
-        private  string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
-        private  string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
-        private  string _sharprURL = "https://sharprua.com/api/";
         private string _localDocumentList = "Documents";
         private List<SharprFileMetadata> _metadata = new List<SharprFileMetadata>();
         private List<SharprTransferRecord> currentFileList = new List<SharprTransferRecord>();
