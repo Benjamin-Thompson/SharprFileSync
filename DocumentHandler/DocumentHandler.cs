@@ -20,7 +20,9 @@ namespace SharprFileSync.DocumentHandler
         private List<SharprTransferRecord> currentFileList;
         public DocumentHandler()
         {
+            
             currentFileList = new List<SharprTransferRecord>() ;
+            Logger.WriteLog(Logger.Category.Information, "Init", "Completed.");
         }
 
         /// <summary>
@@ -32,24 +34,37 @@ namespace SharprFileSync.DocumentHandler
             
             try
             {
-                if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
-                    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
-                {
+                //if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
+                //    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
+                //{
+                    Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Getting Settings");
                     SharprSettings settings = GetSharprSettingValues(properties);
-                    if (properties.ListItem.Level == SPFileLevel.Published)
-                    {
-                        if (properties.List.Title == settings.DocumentListName)
-                        {
+                    //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Retrieved Settings.");
+                    //if (properties.ListItem.Level == SPFileLevel.Published)
+                    //{
+                        Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Item is published");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "properties.List.Title is '" + properties.List.Title + "'");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "settings.DocumentListName is '" + settings.DocumentListName + "'");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "properties.List.ID is '" + properties.List.ID + "'");
+                if (properties.List.ID.ToString().Equals(settings.DocumentListName))
+                {
+                            //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Calling SendFile");
                             SendFile(properties);
+                            //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "SendFile completed.");
                         }
-                    }
+                    //}
 
-                }
+                //}
                 Logger.WriteLog(Logger.Category.Information, "ItemAdded", "Completed.");
             }
             catch (Exception ex)
             {
-                Logger.WriteLog(Logger.Category.Unexpected, "ItemAdded", ex.Message + Environment.NewLine + ex.StackTrace);
+                string innerEx = "";
+                if (ex.InnerException != null)
+                {
+                    innerEx = ex.InnerException.Message + Environment.NewLine + ex.InnerException.StackTrace;
+                }
+                Logger.WriteLog(Logger.Category.Unexpected, "ItemAdded", ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine + innerEx);
             }
             finally
             {
@@ -67,25 +82,40 @@ namespace SharprFileSync.DocumentHandler
 
             try
             {
-                if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
-                    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
-                {
+                //Logger.WriteLog(Logger.Category.Information, "ItemUpdated AfterProperties['vti_sourcecontrolcheckedoutby'] :", properties.AfterProperties["vti_sourcecontrolcheckedoutby"].ToString());
+                //Logger.WriteLog(Logger.Category.Information, "ItemUpdated BeforeProperties['vti_sourcecontrolcheckedoutby'] ", properties.BeforeProperties["vti_sourcecontrolcheckedoutby"].ToString());
+                //if ((properties.AfterProperties["vti_sourcecontrolcheckedoutby"] == null) &&
+                //    (properties.BeforeProperties["vti_sourcecontrolcheckedoutby"] != null))
+                //{
+                    Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Getting settings");
                     SharprSettings settings = GetSharprSettingValues(properties);
-                    if (properties.ListItem.Level == SPFileLevel.Published)
-                    {
-                        if (properties.List.Title == settings.DocumentListName)
+                    //Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Retrieved settings.");
+                    //if (properties.ListItem.Level == SPFileLevel.Published)
+                    //{
+                        Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Item is published");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "properties.List.Title is '" + properties.List.Title + "'");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "settings.DocumentListName is '" + settings.DocumentListName + "'");
+                //Logger.WriteLog(Logger.Category.Information, "ItemAdded", "properties.List.ID is '" + properties.List.ID + "'");
+                if (properties.List.ID.ToString().Equals(settings.DocumentListName))
                         {
+                            //Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Calling SendFile");
                             SendFile(properties);
+                            //Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "SendFile completed.");
                         }
-                    }
+                    //}
 
-                }
+                //}
 
                 Logger.WriteLog(Logger.Category.Information, "ItemUpdated", "Completed.");
             }
             catch (Exception ex)
             {
-                Logger.WriteLog(Logger.Category.Unexpected, "ItemUpdated", ex.Message + Environment.NewLine + ex.StackTrace);
+                string innerEx = "";
+                if (ex.InnerException != null)
+                {
+                    innerEx = ex.InnerException.Message + Environment.NewLine + ex.InnerException.StackTrace;
+                }
+                Logger.WriteLog(Logger.Category.Unexpected, "ItemUpdated", ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine + innerEx);
             }
             finally
             {
@@ -108,7 +138,9 @@ namespace SharprFileSync.DocumentHandler
             {
                 try
                 {
+                    Logger.WriteLog(Logger.Category.Information, "SendFile", "performing initial export.");
                     SharprInitResults result = sss.InitialListLoad(properties.Web);
+                    Logger.WriteLog(Logger.Category.Information, "SendFile", "Initial export complete, writing results.");
                     WriteSharprSettingValue(properties, "Sharpr Service Init Date", DateTime.UtcNow.ToShortDateString());
                     WriteSharprSettingValue(properties, "Sharpr Export Results", Newtonsoft.Json.JsonConvert.SerializeObject(result));
                 }
@@ -116,7 +148,7 @@ namespace SharprFileSync.DocumentHandler
             } else
             {
                 SPFile sFile = properties.ListItem.File;
-
+                Logger.WriteLog(Logger.Category.Information, "SendFile", "Got file for export : " + sFile.Name);
                 //WriteSharprSettingValue(properties, "Currently Processing Files", settings.CurrentlyProcessingFile + "," + sFile.Name);
                 this.currentFileList.Add(new SharprTransferRecord { FileName = sFile.Name, TimeStamp = DateTime.UtcNow, Result = "Started" });
                 string contentType = MimeMapping.GetMimeMapping(sFile.Name);
@@ -135,7 +167,7 @@ namespace SharprFileSync.DocumentHandler
                         //do nothing
                     }
                 }
-
+                Logger.WriteLog(Logger.Category.Information, "SendFile", "Calling UploadFileToSharpr.");
                 //now that we have the contents, upload to Sharpr
                 string result = sss.UploadFileToSharpr(sFile.UniqueId.ToString(), sFile.Name, contentType, mStream, metadata);           
             }
@@ -165,29 +197,35 @@ namespace SharprFileSync.DocumentHandler
         {
             SharprSettings result = new SharprSettings();
             result.NotSet = true;
-
             //by convention, we're going to assume settings are stored in a list within the same site called "Sharpr Settings"
             using (SPWeb web = properties.Site.OpenWeb())
             {
                 SPList list = web.Lists["Sharpr Settings"];
-                string[] fields = { "Title", "Value" };
+                string[] fields = { "Propertylabel", "Value" };
 
+                //Logger.WriteLog(Logger.Category.Information, "GetSharprSettingValues", "Got list of fields.");
                 foreach (SPListItem li in list.GetItems(fields))
                 {
-                    if (((string)li["Title"]) == "Sharpr Service URL") result.SharprURL = (string)li["Value"];
-                    else if (((string)li["Title"]) == "Sharpr Service User") result.SharprUser = (string)li["Value"];
-                    else if (((string)li["Title"]) == "Sharpr Service Password") result.SharprPass = (string)li["Value"];
-                    else if (((string)li["Title"]) == "Local Document List") result.DocumentListName = (string)li["Value"];
-                    //else if (((string)li["Title"]) == "Currently Processing Files") result.CurrentlyProcessingFile = (string)li["Value"];
-                    else if (((string)li["Title"]) == "Sharpr File Metadata")
+                    //Logger.WriteLog(Logger.Category.Information, "GetSharprSettingValues", "Looping through list");
+                    //Logger.WriteLog(Logger.Category.Information, "GetSharprSettingValues", "Setting '" + (string)li["Propertylabel"] + "' value is '" + (string)li["Value"] + "'");
+                    if (((string)li["Propertylabel"]) == "Sharpr Service URL") result.SharprURL = (string)li["Value"];
+                    else if (((string)li["Propertylabel"]) == "Sharpr Service User") result.SharprUser = (string)li["Value"];
+                    else if (((string)li["Propertylabel"]) == "Sharpr Service Password") result.SharprPass = (string)li["Value"];
+                    else if (((string)li["Propertylabel"]) == "Local Document List")
+                    {
+                        result.DocumentListName = TrimDiv((string)li["Value"]);
+                    }
+                    //else if (((string)li["Propertylabel"]) == "Currently Processing Files") result.CurrentlyProcessingFile = (string)li["Value"];
+                    else if (((string)li["Propertylabel"]) == "Sharpr File Metadata")
                     {
                         result.FileMetadata = new List<SharprFileMetadata>();
                         string stringMetadata = System.Web.HttpUtility.HtmlDecode((string)li["Value"]);
                         stringMetadata = stringMetadata.TrimEnd("</div>".ToCharArray()).TrimStart(stringMetadata.Substring(0, stringMetadata.IndexOf('[')).ToCharArray());  //the <div></div> container is added if a multiline control is used. if that's the case, we need to strip that off. 
                         result.FileMetadata = JsonConvert.DeserializeObject<List<SharprFileMetadata>>(stringMetadata);
                     }
-                    else if (((string)li["Title"]) == "Sharpr Service Init Date")
+                    else if (((string)li["Propertylabel"]) == "Sharpr Service Init Date")
                     {
+                        //Logger.WriteLog(Logger.Category.Information, "GetSharprSettingValues", "Setting Service Init Date");
                         string tmpDate = (string)li["Value"];
                         DateTime InitDate;
                         if (DateTime.TryParse(tmpDate, out InitDate))
@@ -198,7 +236,22 @@ namespace SharprFileSync.DocumentHandler
                     result.NotSet = false;
                 }
             }
+            //Logger.WriteLog(Logger.Category.Information, "GetSharprSettingValues", "Completed getting settings.");
             return result;
+        }
+
+        private static string TrimDiv(string input)
+        {
+            string output = input;
+            try
+            {
+                output = input.TrimEnd("</div>".ToCharArray()).TrimStart(input.Substring(0, input.IndexOf('>')).ToCharArray()).TrimStart('>');  //the <div></div> container is added if a multiline control is used. if that's the case, we need to strip that off.
+            }
+            catch {
+                //swallow the error
+            }
+
+            return output;
         }
 
         /// <summary>

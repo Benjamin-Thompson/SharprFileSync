@@ -20,6 +20,9 @@ namespace SharprFileSync.Services
         private string _localDocumentList = "Documents";
         private List<SharprFileMetadata> _metadata = new List<SharprFileMetadata>();
         private List<SharprTransferRecord> currentFileList = new List<SharprTransferRecord>();
+        private string _sharprUser = "1xnTyjWyD0s5BtVZpZCN";
+        private string _sharprPass = "1jnvrrfmvpFnBYZxx8DNVknFZmthQqpYRB7q3L09 ";
+        private string _sharprURL = "https://sharprua.com/api/";
 
         private SharprSyncService()
         {
@@ -63,12 +66,14 @@ namespace SharprFileSync.Services
         public SharprInitResults InitialListLoad(SPWeb web)
         {
             SharprInitResults result = new SharprInitResults();
+            Logger.WriteLog(Logger.Category.Information, "InitialListLoad", "Started.");
 
             result.UploadSuccessCount = 0;
             result.UploadFailCount = 0;
             result.TotalFileCount = 0;
 
             SPList list = web.Lists[_localDocumentList];
+            Logger.WriteLog(Logger.Category.Information, "InitialListLoad", "Got list.");
 
             List<string> fields = new List<string>();
             foreach(SharprFileMetadata m in _metadata)
@@ -99,8 +104,9 @@ namespace SharprFileSync.Services
                     catch { }
                 }
 
+                Logger.WriteLog(Logger.Category.Information, "InitialListLoad", "Calling UploadFileToSharpr for file : " + fileName);
                 string fResult = UploadFileToSharpr(uniqueId, fileName, contentType, mStream, metadata);
-
+                Logger.WriteLog(Logger.Category.Information, "InitialListLoad", "Upload result : " + fResult);
                 if (fResult == "Created") result.UploadSuccessCount++;
                 else result.UploadFailCount++;
                 result.TotalFileCount ++;
@@ -119,6 +125,8 @@ namespace SharprFileSync.Services
 
                 if (fileContents.CanRead && fileContents.Length > 0)
                 {
+                    Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "File is not empty for " + fileName);
+
                     string fileDataString = contentType + Convert.ToBase64String(fileContents.ToArray());
                     //in the event that the file data string contains the file type in it, strip that off (it messes up Sharpr)
                     if (fileDataString.StartsWith(contentType)) fileDataString = fileDataString.TrimStart(contentType.ToCharArray()).TrimStart(' ');
@@ -127,22 +135,23 @@ namespace SharprFileSync.Services
                     req.filename = fileName;
                     req.data = "data:" + contentType + ";base64, " + fileDataString;
                     req.file_size = fileDataString.Length;
-                    req.tags = new List<string>();
+                    //req.tags = new List<string>();
 
 
-                    foreach (SharprFileMetadata m in metadata)
-                    {
-                        //sharepoint stores numeric values in the format "3;#3.00000000000000"; we need to test for this formatting, and if present, convert it to a plain number.
-                        string pValue = "";
-                        //string testValue = TestValueForSharepointInt(m.PropertyValue);
-                        string testValue = GetLinkedItemValue(m.PropertyValue);
-                        if (testValue != "") pValue = testValue;
-                        else pValue = m.PropertyValue;
+                    //additional fields are not needed by Cubic, so this has been commented out.
+                    //foreach (SharprFileMetadata m in metadata)
+                    //{
+                    //    //sharepoint stores numeric values in the format "3;#3.00000000000000"; we need to test for this formatting, and if present, convert it to a plain number.
+                    //    string pValue = "";
+                    //    //string testValue = TestValueForSharepointInt(m.PropertyValue);
+                    //    string testValue = GetLinkedItemValue(m.PropertyValue);
+                    //    if (testValue != "") pValue = testValue;
+                    //    else pValue = m.PropertyValue;
 
-                        if (m.SharprPropertyName.ToLower() == "category") req.category = pValue;
-                        else if (m.SharprPropertyName.ToLower() == "classification") req.classification = pValue;
-                        else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(pValue);
-                    }
+                    //    if (m.SharprPropertyName.ToLower() == "category") req.category = pValue;
+                    //    else if (m.SharprPropertyName.ToLower() == "classification") req.classification = pValue;
+                    //    else if (m.SharprPropertyName.ToLower() == "tags") req.tags.Add(pValue);
+                    //}
 
 
                     string stringJson = Newtonsoft.Json.JsonConvert.SerializeObject(req);
@@ -150,14 +159,32 @@ namespace SharprFileSync.Services
                     stringJson = stringJson.Replace("refNumber", "ref");
 
                     var content = new StringContent(stringJson, Encoding.UTF8, "application/json");
+                    //Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "Content payload prepared for " + fileName + Environment.NewLine + stringJson);
+                    //log the file to be sent, without the whole content
+                    Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "Content payload prepared for " + fileName + Environment.NewLine );
+                    try
+                    {
+                        Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "Calling PutAsync");
+                        var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
+                        tResponse.Wait();
 
-                    var tResponse = client.PutAsync(_sharprURL + "v2/files/sync", content);
-                    tResponse.Wait();
+                        var tRead = tResponse.Result.Content.ReadAsStringAsync();
+                        tRead.Wait();
 
-                    var tRead = tResponse.Result.Content.ReadAsStringAsync();
-                    tRead.Wait();
-
-                    if (tRead.Result != null) result = tResponse.Result.StatusCode.ToString();
+                        if (tRead.Result != null) result = tResponse.Result.StatusCode.ToString();
+                        Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "Response code : " + tResponse.Result.StatusCode + " " + tResponse.Result.ReasonPhrase);
+                        Logger.WriteLog(Logger.Category.Information, "UploadFileToSharpr", "Response content : " + tResponse.Result.Content.ReadAsStringAsync().Result);
+                    }  catch (Exception ex)
+                    {
+                        result = ex.Message;
+                        string innerEx = "";
+                        if (ex.InnerException != null)
+                        {
+                            innerEx = ex.InnerException.Message + Environment.NewLine + ex.InnerException.StackTrace;
+                        }
+                        Logger.WriteLog(Logger.Category.Unexpected, "UploadFileToSharpr", "ERROR: " + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine + innerEx);
+                    }
+                    
                 }
                 else
                 {

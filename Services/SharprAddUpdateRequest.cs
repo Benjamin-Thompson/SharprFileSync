@@ -12,8 +12,8 @@ namespace SharprFileSync.Services
         public string filename { get; set; }
         public string data { get; set; }
         public long file_size { get; set; }
-        public string category { get; set; }
-        public string classification { get; set; }
-        public List<string> tags { get; set; }
+        //public string category { get; set; }
+        //public string classification { get; set; }
+        //public List<string> tags { get; set; }
     }
 }
